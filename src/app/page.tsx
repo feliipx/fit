@@ -11,7 +11,8 @@ import { RoutineExplorer } from '@/components/dashboard/RoutineExplorer';
 export default function AuthPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [isLogin, setIsLogin] = useState(true);
+  type AuthMode = 'login' | 'register' | 'forgot_password';
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -121,14 +122,14 @@ export default function AuthPage() {
     setErrorMsg('');
 
     try {
-      if (isLogin) {
+      if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
         window.location.reload(); 
-      } else {
+      } else if (authMode === 'register') {
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -144,7 +145,14 @@ export default function AuthPage() {
         });
         if (error) throw error;
         alert('Registro exitoso. Revisa tu correo o inicia sesión.');
-        setIsLogin(true);
+        setAuthMode('login');
+      } else if (authMode === 'forgot_password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/update-password`,
+        });
+        if (error) throw error;
+        alert('Se ha enviado un enlace a tu correo para restablecer tu contraseña.');
+        setAuthMode('login');
       }
     } catch (error: any) {
       setErrorMsg(error.message || 'Ocurrió un error');
@@ -213,27 +221,35 @@ export default function AuthPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-gray-50 py-8 px-4 shadow sm:rounded-3xl sm:px-10 border border-gray-100">
           
-          <div className="flex border-b border-gray-200 mb-6">
+          <div className="flex border-b border-gray-200 mb-6 relative">
             <button
+              type="button"
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                isLogin ? 'border-orange-300 text-orange-400' : 'border-transparent text-gray-500 hover:text-gray-700'
+                authMode === 'login' ? 'border-orange-300 text-orange-400' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setIsLogin(true)}
+              onClick={() => setAuthMode('login')}
             >
               Iniciar Sesión
             </button>
             <button
+              type="button"
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                !isLogin ? 'border-orange-300 text-orange-400' : 'border-transparent text-gray-500 hover:text-gray-700'
+                authMode === 'register' ? 'border-orange-300 text-orange-400' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setIsLogin(false)}
+              onClick={() => setAuthMode('register')}
             >
               Registrarse
             </button>
           </div>
 
           <form className="space-y-6" onSubmit={handleAuth}>
-            {!isLogin && (
+            {authMode === 'forgot_password' && (
+              <div className="mb-6 text-sm text-gray-500 text-center">
+                Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+              </div>
+            )}
+            
+            {authMode === 'register' && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Nombre Completo</label>
@@ -321,18 +337,48 @@ export default function AuthPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-              <div className="mt-1">
-                <input
-                  required
-                  type="password"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-orange-300 focus:border-orange-300 sm:text-sm"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+            {authMode !== 'forgot_password' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+                <div className="mt-1">
+                  <input
+                    required
+                    type="password"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-orange-300 focus:border-orange-300 sm:text-sm"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {authMode === 'login' && (
+              <div className="flex items-center justify-end">
+                <div className="text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('forgot_password')}
+                    className="font-medium text-orange-400 hover:text-orange-500 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {authMode === 'forgot_password' && (
+              <div className="flex items-center justify-center">
+                <div className="text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('login')}
+                    className="font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Volver a iniciar sesión
+                  </button>
+                </div>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="text-red-500 text-sm font-medium">
@@ -346,7 +392,7 @@ export default function AuthPage() {
                 disabled={authLoading}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-orange-300 hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-300 disabled:opacity-50 transition-colors"
               >
-                {authLoading ? 'Cargando...' : isLogin ? 'Ingresar' : 'Crear cuenta'}
+                {authLoading ? 'Cargando...' : authMode === 'login' ? 'Ingresar' : authMode === 'register' ? 'Crear cuenta' : 'Restablecer contraseña'}
               </button>
             </div>
           </form>
