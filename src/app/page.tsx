@@ -6,6 +6,8 @@ import { createClient } from '@/utils/supabase/client';
 import { Play, Flame } from 'lucide-react';
 import { ContributionGraph } from '@/components/dashboard/ContributionGraph';
 
+import { RoutineExplorer } from '@/components/dashboard/RoutineExplorer';
+
 export default function AuthPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -30,39 +32,46 @@ export default function AuthPage() {
   const [gender, setGender] = useState('hombre');
 
   useEffect(() => {
+    let isMounted = true;
     const loadDashboard = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        setSessionUser(session.user);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
-        // Fetch Profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        if (session) {
+          if (isMounted) setSessionUser(session.user);
           
-        if (profileData) setProfile(profileData);
+          // Fetch Profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileData && isMounted) setProfile(profileData);
 
-        // Fetch Logs
-        const { data: logsData } = await supabase
-          .from('workout_logs')
-          .select('completed_at')
-          .eq('user_id', session.user.id)
-          .order('completed_at', { ascending: false });
+          // Fetch Logs
+          const { data: logsData } = await supabase
+            .from('workout_logs')
+            .select('completed_at')
+            .eq('user_id', session.user.id)
+            .order('completed_at', { ascending: false });
 
-        if (logsData) {
-          const dates = logsData.map(log => log.completed_at);
-          setLogDates(dates);
-          calculateStreak(dates);
+          if (logsData && isMounted) {
+            const dates = logsData.map(log => log.completed_at);
+            setLogDates(dates);
+            calculateStreak(dates);
+          }
         }
+      } catch (err) {
+        console.error("Error loading dashboard", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     };
     
     loadDashboard();
-  }, [supabase]);
+    return () => { isMounted = false; };
+  }, []); // Empty dependency array to prevent any re-render loops
 
   const calculateStreak = (dates: string[]) => {
     if (dates.length === 0) {
@@ -149,53 +158,38 @@ export default function AuthPage() {
   }
 
   if (sessionUser) {
-    // Render Dashboard with symmetric layout
+    // Render Dashboard with vertical symmetric layout
     return (
       <div className="min-h-[calc(100vh-64px)] bg-white">
         <main className="max-w-5xl mx-auto px-6 py-12">
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {/* ROW 1 */}
-            <div className="md:col-span-2 flex flex-col justify-center">
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-2">
-                Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'} 👋
-              </h1>
-              <p className="text-lg text-gray-500">¿Listo para cuidar tu columna hoy?</p>
-            </div>
-            
-            <div className="md:col-span-1">
-              <div className="bg-orange-50 rounded-3xl p-6 flex items-center gap-6 h-full">
-                <div className="w-14 h-14 bg-orange-300 rounded-full flex items-center justify-center shrink-0 shadow-sm">
+          <div className="flex flex-col gap-10">
+            {/* ROW 1: Greeting + Racha */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-2">
+                  Hola, {profile?.full_name?.split(' ')[0] || 'Usuario'} 👋
+                </h1>
+                <p className="text-lg text-gray-500">¿Listo para cuidar tu columna hoy?</p>
+              </div>
+              
+              <div className="bg-orange-50 border border-orange-100/50 rounded-[2rem] p-6 flex items-center gap-6 min-w-[280px]">
+                <div className="w-14 h-14 bg-orange-400 rounded-full flex items-center justify-center shrink-0 shadow-sm">
                   <Flame className="w-7 h-7 text-white fill-current" />
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block uppercase tracking-wider text-xs mb-1">Racha Actual</span>
-                  <span className="text-3xl font-bold text-orange-400 tracking-tighter">{streak} días</span>
+                  <span className="text-gray-500 font-bold block uppercase tracking-[0.1em] text-[10px] mb-1">RACHA ACTUAL</span>
+                  <span className="text-3xl font-black text-orange-500 tracking-tighter">{streak} días</span>
                 </div>
               </div>
             </div>
 
-            {/* ROW 2 */}
-            <div className="md:col-span-2 flex flex-col">
-              <div className="h-full flex-1">
-                <ContributionGraph logDates={logDates} createdAt={profile?.created_at} />
-              </div>
-            </div>
+            {/* ROW 2: Routine Explorer (Dark Box) */}
+            <RoutineExplorer />
 
-            <div className="md:col-span-1 flex flex-col">
-              <div className="bg-gray-900 rounded-3xl p-8 flex flex-col items-start justify-center relative overflow-hidden shadow-xl h-full min-h-[300px]">
-                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
-                <h3 className="text-2xl font-bold text-white mb-2 relative z-10">Tu Rutina</h3>
-                <p className="text-gray-400 mb-8 relative z-10">Comienza tu sesión diaria de 15 minutos para contrarrestar el sedentarismo.</p>
-                
-                <button
-                  onClick={() => router.push('/workout')}
-                  className="w-full bg-orange-300 hover:bg-orange-400 text-white font-semibold text-lg px-8 py-4 rounded-full transition-all active:scale-95 shadow-md flex items-center justify-center gap-3 relative z-10"
-                >
-                  <Play className="w-5 h-5 fill-current" />
-                  Comenzar
-                </button>
-              </div>
+            {/* ROW 3: Activity Graph */}
+            <div className="h-full">
+              <ContributionGraph logDates={logDates} createdAt={profile?.created_at} />
             </div>
             
           </div>

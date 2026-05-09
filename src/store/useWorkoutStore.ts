@@ -23,6 +23,7 @@ interface WorkoutStore {
   getCurrentExercise: () => Exercise | null;
   getCurrentBlockName: () => string | null;
   resetWorkout: () => void;
+  setRoutine: (routine: Routine) => void;
 }
 
 export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
@@ -157,5 +158,9 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       currentExerciseIndex: 0,
       timeRemaining: 0,
     });
+  },
+
+  setRoutine: (routine: Routine) => {
+    set({ routine });
   }
 }));

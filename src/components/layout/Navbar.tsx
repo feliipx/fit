@@ -10,6 +10,7 @@ export function Navbar() {
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
+  const isHomePage = pathname === '/';
 
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [streak, setStreak] = useState(0);
@@ -117,10 +118,12 @@ export function Navbar() {
 
         {sessionUser && (
           <div className="flex items-center gap-6">
-            <div className="hidden sm:flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
-              <Flame className="w-4 h-4 text-orange-400 fill-current" />
-              <span className="text-sm font-bold text-orange-500">{streak} días</span>
-            </div>
+            {!isHomePage && (
+              <div className="hidden sm:flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+                <Flame className="w-4 h-4 text-orange-400 fill-current" />
+                <span className="text-sm font-bold text-orange-500">{streak} días</span>
+              </div>
+            )}
 
             <Link
               href="/profile"
@@ -134,8 +137,8 @@ export function Navbar() {
               onClick={handleLogout}
               className="text-gray-500 hover:text-red-500 font-medium flex items-center gap-2 transition-colors text-sm"
             >
-              <span className="hidden sm:inline">Cerrar Sesión</span>
               <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
             </button>
           </div>
         )}
